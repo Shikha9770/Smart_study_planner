@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Study Planner</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        header {
+            background-color: #2196F3;
+            color: white;
+            text-align: center;
+            padding: 1rem;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section {
+            background-color: white;
+            margin-bottom: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #2196F3;
+        }
+        form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input, select, button, textarea {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        input[type="text"], input[type="date"], input[type="time"], textarea {
+            flex: 1;
+            min-width: 200px;
+        }
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #1976D2;
+        }
+        .task-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .task-item {
+            background-color: #f9f9f9;
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .task-item.completed {
+            background-color: #e3f2fd;
+            text-decoration: line-through;
+        }
+        .task-info {
+            flex-grow: 1;
+        }
+        .task-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #2196F3;
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 20px;
+            padding-left: 20px;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -25px;
+            top: 5px;
+            width: 10px;
+            height: 10px;
+            background-color: #2196F3;
+            border-radius: 50%;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #2196F3;
+            transition: width 0.3s ease;
+        }
+        @media (max-width: 768px) {
+            form {
+                flex-direction: column;
+            }
+            .task-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .task-actions {
+                margin-top: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Smart Study Planner</h1>
+        <p>Organize your study goals and boost productivity!</p>
+    </header>
+
+    <div class="container">
+        <section class="section" id="add-task">
+            <h2>Add New Study Task</h2>
+            <form id="task-form">
+                <input type="text" id="task-name" placeholder="Task Name" required>
+                <input type="text" id="task-description" placeholder="Description">
+                <textarea id="task-notes" placeholder="Quick Notes" rows="3"></textarea>
+                <select id="task-priority">
+                    <option value="low">Low Priority</option>
+                    <option value="medium">Medium Priority</option>
+                    <option value="high">High Priority</option>
+                </select>
+                <input type="date" id="task-date" required>
+                <input type="time" id="task-time">
+                <button type="submit">Add Task</button>
+            </form>
+        </section>
+
+        <section class="section" id="task-list">
+            <h2>Your Study Tasks</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <p id="progress-text">0% Complete</p>
+            <ul class="task-list" id="tasks"></ul>
+        </section>
+
+        <section class="section" id="timeline">
+            <h2>Study Timeline</h2>
+            <div class="timeline" id="study-timeline"></div>
+        </section>
+    </div>
+
+    <script>
+        // DOM elements
+        const taskForm = document.getElementById('task-form');
+        const taskName = document.getElementById('task-name');
+        const taskDescription = document.getElementById('task-description');
+        const taskNotes = document.getElementById('task-notes');
+        const taskPriority = document.getElementById('task-priority');
+        const taskDate = document.getElementById('task-date');
+        const taskTime = document.getElementById('task-time');
+        const tasksList = document.getElementById('tasks');
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        const studyTimeline = document.getElementById('study-timeline');
+
+        // Load tasks from localStorage
+        let tasks = JSON.parse(localStorage.getItem('studyTasks')) || [];
+
+        // Save tasks to localStorage
+        function saveTasks() {
+            localStorage.setItem('studyTasks', JSON.stringify(tasks));
+        }
+
+        // Render tasks
+        function renderTasks() {
+            tasksList.innerHTML = '';
+            tasks.forEach((task, index) => {
+                const li = document.createElement('li');
+                li.className = `task-item ${task.completed ? 'completed' : ''}`;
+                li.innerHTML = `
+                    <div class="task-info">
+                        <strong>${task.name}</strong>
+                        <p>${task.description || 'No description'}</p>
+                        <p>Notes: ${task.notes || 'No notes'}</p>
+                        <small>Priority: ${task.priority} | Due: ${task.date} ${task.time || ''}</small>
+                    </div>
+                    <div class="task-actions">
+                        <button onclick="toggleComplete(${index})">${task.completed ? 'Undo' : 'Complete'}</button>
+                        <button onclick="deleteTask(${index})">Delete</button>
+                    </div>
+                `;
+                tasksList.appendChild(li);
+            });
+            updateProgress();
+            renderTimeline();
+        }
+
+        // Add new task
+        taskForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newTask = {
+                name: taskName.value,
+                description: taskDescription.value,
+                notes: taskNotes.value,
+                priority: taskPriority.value,
+                date: taskDate.value,
+                time: taskTime.value,
+                completed: false,
+                id: Date.now()
+            };
+            tasks.push(newTask);
+            saveTasks();
+            renderTasks();
+            taskForm.reset();
+        });
+
+        // Toggle task completion
+        function toggleComplete(index) {
+            tasks[index].completed = !tasks[index].completed;
+            saveTasks();
+            renderTasks();
+        }
+
+        // Delete task
+        function deleteTask(index) {
+            tasks.splice(index, 1);
+            saveTasks();
+            renderTasks();
+        }
+
+        // Update progress bar
+        function updateProgress() {
+            const completedTasks = tasks.filter(task => task.completed).length;
+            const totalTasks = tasks.length;
+            const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = `${Math.round(progress)}% Complete`;
+        }
+
+        // Render timeline
+        function renderTimeline() {
+            studyTimeline.innerHTML = '';
+            const sortedTasks = tasks.sort((a, b) => new Date(a.date + ' ' + (a.time || '00:00')) - new Date(b.date + ' ' + (b.time || '00:00')));
+            sortedTasks.forEach(task => {
+                const timelineItem = document.createElement('div');
+                timelineItem.className = 'timeline-item';
+                timelineItem.innerHTML = `
+                    <h3>${task.name}</h3>
+                    <p>${task.description || 'No description'}</p>
+                    <p>Notes: ${task.notes || 'No notes'}</p>
+                    <small>${task.date} ${task.time || ''} - Priority: ${task.priority}</small>
+                `;
+                studyTimeline.appendChild(timelineItem);
+            });
+        }
+
+        // Check for reminders (simple implementation)
+        function checkReminders() {
+            const now = new Date();
+            tasks.forEach(task => {
+                if (!task.completed && task.date && task.time) {
+                    const taskDateTime = new Date(task.date + ' ' + task.time);
+                    const timeDiff = taskDateTime - now;
+                    // Remind 1 hour before
+                    if (timeDiff > 0 && timeDiff <= 3600000) {
+                        alert(`Reminder: ${task.name} is due soon!`);
+                    }
+                }
+            });
+        }
+
+        // Initial render
+        renderTasks();
+
+        // Check reminders every minute
+        setInterval(checkReminders, 60000);
+    </script>
+</body>
+</html>
